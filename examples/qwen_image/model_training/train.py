@@ -101,6 +101,12 @@ def qwen_image_parser():
     parser.add_argument("--tokenizer_path", type=str, default=None, help="Path to tokenizer.")
     parser.add_argument("--processor_path", type=str, default=None, help="Path to the processor. If provided, the processor will be used for image editing.")
     parser.add_argument("--zero_cond_t", default=False, action="store_true", help="A special parameter introduced by Qwen-Image-Edit-2511. Please enable it for this model.")
+    parser.add_argument(
+        "--rgba_keys",
+        type=str,
+        default="",
+        help="Comma-separated data keys to load as RGBA (e.g. image,edit_image).",
+    )
     return parser
 
 
@@ -111,6 +117,58 @@ if __name__ == "__main__":
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         kwargs_handlers=[accelerate.DistributedDataParallelKwargs(find_unused_parameters=args.find_unused_parameters)],
     )
+    rgba_keys = {key.strip() for key in args.rgba_keys.split(",") if key.strip()}
+
+    def rgba_image_operator():
+        return RouteByType(
+            operator_map=[
+                (
+                    str,
+                    ToAbsolutePath(args.dataset_base_path)
+                    >> LoadImage(convert_RGB=False, convert_RGBA=True)
+                    >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
+                ),
+                (
+                    list,
+                    SequencialProcess(
+                        ToAbsolutePath(args.dataset_base_path)
+                        >> LoadImage(convert_RGB=False, convert_RGBA=True)
+                        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)
+                    ),
+                ),
+            ]
+        )
+
+    special_operator_map = {
+        # Qwen-Image-Layered
+        "layer_input_image": ToAbsolutePath(args.dataset_base_path)
+        >> LoadImage(convert_RGB=False, convert_RGBA=True)
+        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
+        "image": rgba_image_operator()
+        if "image" in rgba_keys
+        else RouteByType(
+            operator_map=[
+                (
+                    str,
+                    ToAbsolutePath(args.dataset_base_path)
+                    >> LoadImage()
+                    >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
+                ),
+                (
+                    list,
+                    SequencialProcess(
+                        ToAbsolutePath(args.dataset_base_path)
+                        >> LoadImage(convert_RGB=False, convert_RGBA=True)
+                        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)
+                    ),
+                ),
+            ]
+        ),
+    }
+
+    if "edit_image" in rgba_keys:
+        special_operator_map["edit_image"] = rgba_image_operator()
+
     dataset = UnifiedDataset(
         base_path=args.dataset_base_path,
         metadata_path=args.dataset_metadata_path,
@@ -124,14 +182,7 @@ if __name__ == "__main__":
             height_division_factor=16,
             width_division_factor=16,
         ),
-        special_operator_map={
-            # Qwen-Image-Layered
-            "layer_input_image": ToAbsolutePath(args.dataset_base_path) >> LoadImage(convert_RGB=False, convert_RGBA=True) >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
-            "image": RouteByType(operator_map=[
-                (str, ToAbsolutePath(args.dataset_base_path) >> LoadImage() >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)),
-                (list, SequencialProcess(ToAbsolutePath(args.dataset_base_path) >> LoadImage(convert_RGB=False, convert_RGBA=True) >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16))),
-            ])
-        }
+        special_operator_map=special_operator_map,
     )
     model = QwenImageTrainingModule(
         model_paths=args.model_paths,

@@ -6,15 +6,16 @@ import torch
 from PIL import Image
 
 from diffsynth.pipelines.qwen_image import QwenImagePipeline, ModelConfig
+from diffsynth import load_state_dict
 
 
 DEFAULT_MODEL_BASE = "/mnt/lica-data-2/for_jjseol/diffsynth_models"
 
-LORA_PATH = "models/train/Qwen-Image-Edit-2511_lora_layered_vae_fg_seg/epoch-0-fail.safetensors"
+FULL_CKPT = "models/train/Qwen-Image-Edit-2511_full_layered_vae_fg_seg/epoch-1.safetensors"
 
 # Example sample (update as needed)
 SAMPLE_ID = "0A1fpH5vp6T8dy0VU9xi"
-DATA_ROOT = Path("/mnt/data/for_jjseol/qwen_text_seg")
+DATA_ROOT = Path("/home/ubuntu/for_jjseol/qwen_text_seg")
 IMAGE_PATH = DATA_ROOT / "images" / f"{SAMPLE_ID}.png"
 EDIT_IMAGE_PATH = DATA_ROOT / "edit_images" / f"{SAMPLE_ID}.png"
 
@@ -64,12 +65,12 @@ def main() -> None:
         processor_config=_aux_config_local_only(qwen_root / "Qwen-Image-Edit" / "processor", "Qwen-Image-Edit processor"),
     )
 
-    if not os.path.exists(LORA_PATH):
-        raise FileNotFoundError(f"LoRA checkpoint not found: {LORA_PATH}")
-    pipe.load_lora(pipe.dit, LORA_PATH)
+    if not os.path.exists(FULL_CKPT):
+        raise FileNotFoundError(f"Full checkpoint not found: {FULL_CKPT}")
+    state_dict = load_state_dict(FULL_CKPT)
+    pipe.dit.load_state_dict(state_dict)
 
     edit_image = Image.open(EDIT_IMAGE_PATH).convert("RGBA")
-    #edit_image = Image.open(IMAGE_PATH).convert("RGBA")
     width, height = edit_image.size
 
     result = pipe(
@@ -82,7 +83,7 @@ def main() -> None:
         edit_image_auto_resize=True,
         zero_cond_t=True,
     )
-    out_path = Path("image_fg_seg.png")
+    out_path = Path("image_fg_seg_full.png")
     result.save(out_path)
     print(f"[done] saved to {out_path}")
 

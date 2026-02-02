@@ -11,7 +11,7 @@ accelerate launch examples/qwen_image/model_training/train.py \
   --tokenizer_path "/mnt/lica-data-2/for_jjseol/diffsynth_models/Qwen/Qwen-Image/tokenizer" \
   --processor_path "/mnt/lica-data-2/for_jjseol/diffsynth_models/Qwen/Qwen-Image-Edit/processor" \
   --remove_prefix_in_ckpt "pipe.dit." \
-  --output_path "/mnt/local/Qwen-Image-Edit-2511_full_layered_vae_fg_seg_cache" \
+  --output_path "/mnt/local/Qwen-Image-Edit-2511_full_layered_vae_text_seg_cache" \
   --trainable_models "dit" \
   --use_gradient_checkpointing \
   --dataset_num_workers 8 \
@@ -30,7 +30,7 @@ accelerate launch --config_file examples/qwen_image/model_training/full/accelera
   --learning_rate 5e-5 \
   --num_epochs 5 \
   --remove_prefix_in_ckpt "pipe.dit." \
-  --output_path "./models/train/Qwen-Image-Edit-2511_full_layered_vae_fg_seg" \
+  --output_path "./models/train/Qwen-Image-Edit-2511_full_layered_vae_text_seg" \
   --trainable_models "dit" \
   --use_gradient_checkpointing \
   --dataset_num_workers 8 \

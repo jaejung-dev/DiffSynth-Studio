@@ -105,19 +105,20 @@ def main() -> None:
 
     # Composite output on checkerboard background for RGBA visibility
     output_rgba = result.convert("RGBA")
-    checker_bg = _checkerboard_rgba(output_rgba.size, tile=32)
     output_composite = output_rgba#Image.alpha_composite(checker_bg, output_rgba).convert("RGB")
 
     # Compose side-by-side: edit_image | output | input_image
-    edit_rgb = edit_image.convert("RGB")
-    input_rgb = input_image.convert("RGB")
+    edit_rgb = edit_image.convert("RGBA")
+    input_rgb = input_image.convert("RGBA")
     out_w, out_h = target_size
-    canvas = Image.new("RGB", (out_w * 3, out_h), (0, 0, 0))
+    canvas = Image.new("RGBA", (out_w * 3, out_h), (0, 0, 0))
     canvas.paste(edit_rgb, (0, 0))
     canvas.paste(output_composite, (out_w, 0))
     canvas.paste(input_rgb, (out_w * 2, 0))
 
-    out_path = Path("image_fg_seg_triplet.png")
+    output_dir = Path(__file__).resolve().parents[4] / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    out_path = output_dir / "image_fg_seg_triplet.png"
     canvas.save(out_path)
     print(f"[done] saved to {out_path}")
 

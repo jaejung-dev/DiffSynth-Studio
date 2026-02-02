@@ -82,8 +82,31 @@ def main() -> None:
         edit_image_auto_resize=True,
         zero_cond_t=True,
     )
-    out_path = Path("image_fg_seg.png")
-    result.save(out_path)
+    input_image = Image.open(IMAGE_PATH).convert("RGBA")
+
+    # Resize input/edit to match output size
+    target_size = result.size
+    if input_image.size != target_size:
+        input_image = input_image.resize(target_size, Image.LANCZOS)
+    if edit_image.size != target_size:
+        edit_image = edit_image.resize(target_size, Image.LANCZOS)
+
+    # Composite output on white background for readability
+    output_rgba = result.convert("RGBA")
+    white_bg = Image.new("RGBA", output_rgba.size, (255, 255, 255, 255))
+    output_composite = Image.alpha_composite(white_bg, output_rgba).convert("RGB")
+
+    # Compose side-by-side: edit_image | output | input_image
+    edit_rgb = edit_image.convert("RGB")
+    input_rgb = input_image.convert("RGB")
+    out_w, out_h = target_size
+    canvas = Image.new("RGB", (out_w * 3, out_h), (0, 0, 0))
+    canvas.paste(edit_rgb, (0, 0))
+    canvas.paste(output_composite, (out_w, 0))
+    canvas.paste(input_rgb, (out_w * 2, 0))
+
+    out_path = Path("image_fg_seg_triplet.png")
+    canvas.save(out_path)
     print(f"[done] saved to {out_path}")
 
 

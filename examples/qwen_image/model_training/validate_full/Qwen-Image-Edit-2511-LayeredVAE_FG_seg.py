@@ -11,7 +11,7 @@ from diffsynth import load_state_dict
 
 DEFAULT_MODEL_BASE = "/mnt/lica-data-2/for_jjseol/diffsynth_models"
 
-FULL_CKPT = "models/train/Qwen-Image-Edit-2511_full_layered_vae_fg_seg/epoch-1.safetensors"
+FULL_CKPT = "models/train/Qwen-Image-Edit-2511_full_layered_vae_fg_seg/epoch-0.safetensors"
 
 # Example sample (update as needed)
 SAMPLE_ID = "0A1fpH5vp6T8dy0VU9xi"
@@ -92,16 +92,28 @@ def main() -> None:
     if edit_image.size != target_size:
         edit_image = edit_image.resize(target_size, Image.LANCZOS)
 
-    # Composite output on white background for readability
+    def _checkerboard_rgba(size, tile=32):
+        w, h = size
+        light = (200, 200, 200, 255)
+        dark = (160, 160, 160, 255)
+        bg = Image.new("RGBA", size, light)
+        tile_img = Image.new("RGBA", (tile, tile), dark)
+        for y in range(0, h, tile):
+            for x in range(0, w, tile):
+                if (x // tile + y // tile) % 2 == 1:
+                    bg.paste(tile_img, (x, y))
+        return bg
+
+    # Composite output on checkerboard background for RGBA visibility
     output_rgba = result.convert("RGBA")
-    white_bg = Image.new("RGBA", output_rgba.size, (255, 255, 255, 255))
-    output_composite = Image.alpha_composite(white_bg, output_rgba).convert("RGB")
+    checker_bg = _checkerboard_rgba(output_rgba.size, tile=32)
+    output_composite = output_rgba#Image.alpha_composite(checker_bg, output_rgba).convert("RGB")
 
     # Compose side-by-side: edit_image | output | input_image
-    edit_rgb = edit_image.convert("RGB")
-    input_rgb = input_image.convert("RGB")
+    edit_rgb = edit_image.convert("RGBA")
+    input_rgb = input_image.convert("RGBA")
     out_w, out_h = target_size
-    canvas = Image.new("RGB", (out_w * 3, out_h), (0, 0, 0))
+    canvas = Image.new("RGBA", (out_w * 3, out_h), (0, 0, 0, 255))
     canvas.paste(edit_rgb, (0, 0))
     canvas.paste(output_composite, (out_w, 0))
     canvas.paste(input_rgb, (out_w * 2, 0))

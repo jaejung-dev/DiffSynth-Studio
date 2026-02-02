@@ -91,10 +91,22 @@ def main() -> None:
     if edit_image.size != target_size:
         edit_image = edit_image.resize(target_size, Image.LANCZOS)
 
-    # Composite output on white background for readability
+    def _checkerboard_rgba(size, tile=32):
+        w, h = size
+        light = (200, 200, 200, 255)
+        dark = (160, 160, 160, 255)
+        bg = Image.new("RGBA", size, light)
+        tile_img = Image.new("RGBA", (tile, tile), dark)
+        for y in range(0, h, tile):
+            for x in range(0, w, tile):
+                if (x // tile + y // tile) % 2 == 1:
+                    bg.paste(tile_img, (x, y))
+        return bg
+
+    # Composite output on checkerboard background for RGBA visibility
     output_rgba = result.convert("RGBA")
-    white_bg = Image.new("RGBA", output_rgba.size, (255, 255, 255, 255))
-    output_composite = Image.alpha_composite(white_bg, output_rgba).convert("RGB")
+    checker_bg = _checkerboard_rgba(output_rgba.size, tile=32)
+    output_composite = output_rgba#Image.alpha_composite(checker_bg, output_rgba).convert("RGB")
 
     # Compose side-by-side: edit_image | output | input_image
     edit_rgb = edit_image.convert("RGB")

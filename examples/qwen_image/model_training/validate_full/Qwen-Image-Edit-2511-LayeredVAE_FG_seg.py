@@ -106,7 +106,6 @@ def main() -> None:
 
     # Composite output on checkerboard background for RGBA visibility
     output_rgba = result.convert("RGBA")
-    checker_bg = _checkerboard_rgba(output_rgba.size, tile=32)
     output_composite = output_rgba#Image.alpha_composite(checker_bg, output_rgba).convert("RGB")
 
     # Compose side-by-side: edit_image | output | input_image

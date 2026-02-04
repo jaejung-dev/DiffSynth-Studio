@@ -14,7 +14,7 @@ DEFAULT_MODEL_BASE = "/mnt/lica-data-2/for_jjseol/diffsynth_models"
 FULL_CKPT = "models/train/Qwen-Image-Edit-2511_full_layered_vae_text_seg/epoch-0.safetensors"
 
 # Example sample (update as needed)
-SAMPLE_ID = "0A1fpH5vp6T8dy0VU9xi"
+SAMPLE_ID = "0BCtRnvdDNbHyjZDsooQ"
 DATA_ROOT = Path("/home/ubuntu/for_jjseol/qwen_text_seg")
 IMAGE_PATH = DATA_ROOT / "images" / f"{SAMPLE_ID}.png"
 EDIT_IMAGE_PATH = DATA_ROOT / "edit_images" / f"{SAMPLE_ID}.png"
@@ -119,7 +119,7 @@ def main() -> None:
 
     output_dir = Path(__file__).resolve().parents[4] / "output"
     output_dir.mkdir(parents=True, exist_ok=True)
-    out_path = output_dir / "image_fg_seg_full_triplet.png"
+    out_path = output_dir / f"{SAMPLE_ID}_triplet.png"
     canvas.save(out_path)
     print(f"[done] saved to {out_path}")
 

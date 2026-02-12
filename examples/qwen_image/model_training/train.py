@@ -1,5 +1,6 @@
 import torch, os, argparse, accelerate
 from diffsynth.core import UnifiedDataset
+from diffsynth import load_state_dict
 from diffsynth.pipelines.qwen_image import QwenImagePipeline, ModelConfig
 from diffsynth.diffusion import *
 from diffsynth.core.data.operators import *
@@ -101,6 +102,7 @@ def qwen_image_parser():
     parser.add_argument("--tokenizer_path", type=str, default=None, help="Path to tokenizer.")
     parser.add_argument("--processor_path", type=str, default=None, help="Path to the processor. If provided, the processor will be used for image editing.")
     parser.add_argument("--zero_cond_t", default=False, action="store_true", help="A special parameter introduced by Qwen-Image-Edit-2511. Please enable it for this model.")
+    parser.add_argument("--init_dit_ckpt", type=str, default=None, help="Path to a DiT checkpoint to warm-start training.")
     parser.add_argument(
         "--rgba_keys",
         type=str,
@@ -119,19 +121,39 @@ if __name__ == "__main__":
     )
     rgba_keys = {key.strip() for key in args.rgba_keys.split(",") if key.strip()}
 
-    def rgba_image_operator():
+    def parse_csv(value):
+        if value is None:
+            return []
+        return [item.strip() for item in value.split(",") if item.strip()]
+
+    base_paths = parse_csv(args.dataset_base_path)
+    if not base_paths:
+        raise ValueError("dataset_base_path is required.")
+    if args.dataset_metadata_path:
+        metadata_paths = parse_csv(args.dataset_metadata_path)
+        if len(metadata_paths) == 1 and len(base_paths) > 1:
+            metadata_paths = metadata_paths * len(base_paths)
+        elif len(metadata_paths) != len(base_paths):
+            raise ValueError(
+                "dataset_base_path and dataset_metadata_path must have the same number of items,"
+                " or provide a single metadata path to reuse for all datasets."
+            )
+    else:
+        metadata_paths = [None] * len(base_paths)
+
+    def rgba_image_operator(base_path):
         return RouteByType(
             operator_map=[
                 (
                     str,
-                    ToAbsolutePath(args.dataset_base_path)
+                    ToAbsolutePath(base_path)
                     >> LoadImage(convert_RGB=False, convert_RGBA=True)
                     >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
                 ),
                 (
                     list,
                     SequencialProcess(
-                        ToAbsolutePath(args.dataset_base_path)
+                        ToAbsolutePath(base_path)
                         >> LoadImage(convert_RGB=False, convert_RGBA=True)
                         >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)
                     ),
@@ -139,51 +161,58 @@ if __name__ == "__main__":
             ]
         )
 
-    special_operator_map = {
-        # Qwen-Image-Layered
-        "layer_input_image": ToAbsolutePath(args.dataset_base_path)
-        >> LoadImage(convert_RGB=False, convert_RGBA=True)
-        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
-        "image": rgba_image_operator()
-        if "image" in rgba_keys
-        else RouteByType(
-            operator_map=[
-                (
-                    str,
-                    ToAbsolutePath(args.dataset_base_path)
-                    >> LoadImage()
-                    >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
-                ),
-                (
-                    list,
-                    SequencialProcess(
-                        ToAbsolutePath(args.dataset_base_path)
-                        >> LoadImage(convert_RGB=False, convert_RGBA=True)
-                        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)
+    def build_dataset(base_path, metadata_path):
+        special_operator_map = {
+            # Qwen-Image-Layered
+            "layer_input_image": ToAbsolutePath(base_path)
+            >> LoadImage(convert_RGB=False, convert_RGBA=True)
+            >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
+            "image": rgba_image_operator(base_path)
+            if "image" in rgba_keys
+            else RouteByType(
+                operator_map=[
+                    (
+                        str,
+                        ToAbsolutePath(base_path)
+                        >> LoadImage()
+                        >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16),
                     ),
-                ),
-            ]
-        ),
-    }
+                    (
+                        list,
+                        SequencialProcess(
+                            ToAbsolutePath(base_path)
+                            >> LoadImage(convert_RGB=False, convert_RGBA=True)
+                            >> ImageCropAndResize(args.height, args.width, args.max_pixels, 16, 16)
+                        ),
+                    ),
+                ]
+            ),
+        }
 
-    if "edit_image" in rgba_keys:
-        special_operator_map["edit_image"] = rgba_image_operator()
+        if "edit_image" in rgba_keys:
+            special_operator_map["edit_image"] = rgba_image_operator(base_path)
 
-    dataset = UnifiedDataset(
-        base_path=args.dataset_base_path,
-        metadata_path=args.dataset_metadata_path,
-        repeat=args.dataset_repeat,
-        data_file_keys=args.data_file_keys.split(","),
-        main_data_operator=UnifiedDataset.default_image_operator(
-            base_path=args.dataset_base_path,
-            max_pixels=args.max_pixels,
-            height=args.height,
-            width=args.width,
-            height_division_factor=16,
-            width_division_factor=16,
-        ),
-        special_operator_map=special_operator_map,
-    )
+        return UnifiedDataset(
+            base_path=base_path,
+            metadata_path=metadata_path,
+            repeat=args.dataset_repeat,
+            data_file_keys=args.data_file_keys.split(","),
+            main_data_operator=UnifiedDataset.default_image_operator(
+                base_path=base_path,
+                max_pixels=args.max_pixels,
+                height=args.height,
+                width=args.width,
+                height_division_factor=16,
+                width_division_factor=16,
+            ),
+            special_operator_map=special_operator_map,
+        )
+
+    datasets = [
+        build_dataset(base_path, metadata_path)
+        for base_path, metadata_path in zip(base_paths, metadata_paths)
+    ]
+    dataset = datasets[0] if len(datasets) == 1 else torch.utils.data.ConcatDataset(datasets)
     model = QwenImageTrainingModule(
         model_paths=args.model_paths,
         model_id_with_origin_paths=args.model_id_with_origin_paths,
@@ -205,6 +234,14 @@ if __name__ == "__main__":
         device=accelerator.device,
         zero_cond_t=args.zero_cond_t,
     )
+    if args.init_dit_ckpt:
+        state_dict = load_state_dict(args.init_dit_ckpt)
+        load_result = model.pipe.dit.load_state_dict(state_dict, strict=False)
+        if load_result.missing_keys:
+            print(f"[init] Missing keys when loading DiT ckpt: {load_result.missing_keys[:10]}")
+        if load_result.unexpected_keys:
+            print(f"[init] Unexpected keys when loading DiT ckpt: {load_result.unexpected_keys[:10]}")
+        print(f"[init] DiT checkpoint loaded: {args.init_dit_ckpt}")
     model_logger = ModelLogger(
         args.output_path,
         remove_prefix_in_ckpt=args.remove_prefix_in_ckpt,

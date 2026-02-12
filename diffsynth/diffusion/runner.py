@@ -5,6 +5,14 @@ from .training_module import DiffusionTrainingModule
 from .logger import ModelLogger
 
 
+def _dataset_load_from_cache(dataset: torch.utils.data.Dataset) -> bool:
+    if isinstance(dataset, torch.utils.data.Subset):
+        return _dataset_load_from_cache(dataset.dataset)
+    if isinstance(dataset, torch.utils.data.ConcatDataset):
+        return all(_dataset_load_from_cache(ds) for ds in dataset.datasets)
+    return getattr(dataset, "load_from_cache", False)
+
+
 def launch_training_task(
     accelerator: Accelerator,
     dataset: torch.utils.data.Dataset,
@@ -30,11 +38,12 @@ def launch_training_task(
     
     model, optimizer, dataloader, scheduler = accelerator.prepare(model, optimizer, dataloader, scheduler)
     
+    load_from_cache = _dataset_load_from_cache(dataset)
     for epoch_id in range(num_epochs):
         for data in tqdm(dataloader):
             with accelerator.accumulate(model):
                 optimizer.zero_grad()
-                if dataset.load_from_cache:
+                if load_from_cache:
                     loss = model({}, inputs=data)
                 else:
                     loss = model(data)

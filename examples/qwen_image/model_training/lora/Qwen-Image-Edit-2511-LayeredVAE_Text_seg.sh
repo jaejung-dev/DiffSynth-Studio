@@ -2,7 +2,7 @@ DIFFSYNTH_MODEL_BASE_PATH=/mnt/lica-data-2/for_jjseol/diffsynth_models \
 DIFFSYNTH_SKIP_DOWNLOAD=true \
 accelerate launch examples/qwen_image/model_training/train.py \
   --dataset_base_path "/home/ubuntu/for_jjseol/qwen_text_seg" \
-  --dataset_metadata_path "/home/ubuntu/for_jjseol/qwen_text_seg/train100k.json" \
+  --dataset_metadata_path "/home/ubuntu/for_jjseol/qwen_text_seg/train.json" \
   --data_file_keys "image,edit_image" \
   --extra_inputs "edit_image" \
   --max_pixels 1048576 \
@@ -10,7 +10,7 @@ accelerate launch examples/qwen_image/model_training/train.py \
   --model_id_with_origin_paths "Qwen/Qwen-Image-Edit-2511:transformer/diffusion_pytorch_model*.safetensors,Qwen/Qwen-Image:text_encoder/model*.safetensors,Qwen/Qwen-Image-Layered:vae/diffusion_pytorch_model.safetensors" \
   --tokenizer_path "/mnt/lica-data-2/for_jjseol/diffsynth_models/Qwen/Qwen-Image/tokenizer" \
   --processor_path "/mnt/lica-data-2/for_jjseol/diffsynth_models/Qwen/Qwen-Image-Edit/processor" \
-  --learning_rate 1e-4 \
+  --learning_rate 5e-5 \
   --num_epochs 5 \
   --remove_prefix_in_ckpt "pipe.dit." \
   --output_path "./models/train/Qwen-Image-Edit-2511_lora_layered_vae_text_seg" \
@@ -21,4 +21,5 @@ accelerate launch examples/qwen_image/model_training/train.py \
   --dataset_num_workers 8 \
   --find_unused_parameters \
   --rgba_keys "image,edit_image" \
+  --lora_checkpoint "/home/ubuntu/DiffSynth-Studio/models/train/Qwen-Image-Edit-2511_lora_layered_vae_text_seg/epoch-0-100k.safetensors"\
   --zero_cond_t # This is a special parameter introduced by Qwen-Image-Edit-2511. Please enable it for this model.

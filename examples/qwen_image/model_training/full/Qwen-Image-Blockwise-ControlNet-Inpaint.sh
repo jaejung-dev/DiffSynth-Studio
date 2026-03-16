@@ -9,7 +9,7 @@
 ###     train/
 ###     val/
 
-SAVE_STEPS=1000
+SAVE_STEPS=10000
 DATASET_ROOT="/home/ubuntu/for_jjseol/qwen_eraser_dataset"
 TRAIN_JSONL="${DATASET_ROOT}/train_blockwise_controlnet_inpaint.jsonl"
 OUTPUT_ROOT="/mnt/lica-data-2/for_jjseol/diffsynth_models/train/Qwen-Image-Blockwise-ControlNet-Inpaint_full"
@@ -20,7 +20,7 @@ accelerate launch --config_file examples/qwen_image/model_training/full/accelera
   --max_pixels 1048576 \
   --dataset_repeat 1 \
   --model_id_with_origin_paths "Qwen/Qwen-Image:transformer/diffusion_pytorch_model*.safetensors,Qwen/Qwen-Image:text_encoder/model*.safetensors,Qwen/Qwen-Image:vae/diffusion_pytorch_model.safetensors,DiffSynth-Studio/Qwen-Image-Blockwise-ControlNet-Inpaint:model.safetensors" \
-  --learning_rate 1e-3 \
+  --learning_rate 1e-4 \
   --num_epochs 5 \
   --save_steps "${SAVE_STEPS}" \
   --remove_prefix_in_ckpt "pipe.blockwise_controlnet.models.0." \

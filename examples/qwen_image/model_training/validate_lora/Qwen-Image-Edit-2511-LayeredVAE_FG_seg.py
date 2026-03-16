@@ -10,10 +10,10 @@ from diffsynth.pipelines.qwen_image import QwenImagePipeline, ModelConfig
 
 DEFAULT_MODEL_BASE = "/mnt/lica-data-2/for_jjseol/diffsynth_models"
 
-LORA_PATH = "models/train/Qwen-Image-Edit-2511_lora_layered_vae_fg_seg/epoch-0-fail.safetensors"
+LORA_PATH = "/home/ubuntu/DiffSynth-Studio/models/train/Qwen-Image-Edit-2511_lora_layered_vae_text_seg/epoch-0.safetensors"
 
 # Example sample (update as needed)
-SAMPLE_ID = "0A1fpH5vp6T8dy0VU9xi"
+SAMPLE_ID = "MXnDfXUDJuuhONaPzJso"
 DATA_ROOT = Path("/mnt/data/for_jjseol/qwen_text_seg")
 IMAGE_PATH = DATA_ROOT / "images" / f"{SAMPLE_ID}.png"
 EDIT_IMAGE_PATH = DATA_ROOT / "edit_images" / f"{SAMPLE_ID}.png"
